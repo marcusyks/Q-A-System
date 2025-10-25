@@ -87,7 +87,7 @@ startxref
         docs = self.loader.load(self.txt_path)
         self.assertEqual(len(docs), 1)
         self.assertEqual(docs[0].page_content, "This is a text file.")
-        self.assertEqual(docs[0].metadata["source"], self.txt_path)
+        self.assertEqual(docs[0].metadata["source"], "test.txt")
 
     @unittest.skipIf(not pd, "pandas is not installed")
     def test_load_csv_file(self):
@@ -98,6 +98,7 @@ startxref
 
         # Check contents 
         self.assertEqual(docs[0].page_content, "id: 1 \nname: Alice")
+        self.assertEqual(docs[0].metadata["source"], "test.csv")
         self.assertEqual(docs[0].metadata["row"], 0)
         self.assertEqual(docs[1].page_content, "id: 2 \nname: Bob")
         self.assertEqual(docs[1].metadata["row"], 1)
@@ -111,6 +112,7 @@ startxref
 
         # Checks contents
         self.assertEqual(docs[0].page_content, "This is a docx file.")
+        self.assertEqual(docs[0].metadata["source"], "test.docx")
 
     @unittest.skipIf(not pdfplumber, "pdfplumber is not installed")
     def test_load_pdf_file(self):
@@ -121,21 +123,28 @@ startxref
         
         # Checks contents
         self.assertEqual(docs[0].page_content, "This is a PDF file.")
-        self.assertEqual(docs[0].metadata["source"], self.pdf_path)
+        self.assertEqual(docs[0].metadata["source"], "test.pdf")
         self.assertEqual(docs[0].metadata["page"], 1)
 
     def test_load_directory_non_recursive(self):
         docs = self.loader.load(self.test_dir, recursive=False)
 
         # Should find .txt, .csv, .docx, .pdf but not the .md in the subdir
-        expected_files = (1 if docx else 0) + (1 if pd else 0) + (1 if pdfplumber else 0) + 2 # for .txt and unsupported file
-        self.assertEqual(len(docs), expected_files)
+        # CSV creates 1 docs, PDF creates 1, TXT creates 1, DOCX creates 1.
+        expected_docs = 2 # .txt and invalid
+        if pd: expected_docs += 1 # .csv 
+        if docx: expected_docs += 1 # .docx
+        if pdfplumber: expected_docs += 1 # .pdf
+        self.assertEqual(len(docs), expected_docs)
 
     def test_load_directory_recursive(self):
         docs = self.loader.load(self.test_dir, recursive=True)
         # Should find .txt, .csv, .docx, .pdf AND the .md in the subdir
-        expected_files = (1 if docx else 0) + (1 if pd else 0) + (1 if pdfplumber else 0) + 3 # for .txt and .md and unsupported file
-        self.assertEqual(len(docs), expected_files)
+        expected_docs = 3 # .txt and .md and invalid
+        if pd: expected_docs += 1 # .csv
+        if docx: expected_docs += 1 # .docx
+        if pdfplumber: expected_docs += 1 # .pdf
+        self.assertEqual(len(docs), expected_docs)
 
     def test_unsupported_file_type(self):
         docs = self.loader.load(self.unsupported_path)
