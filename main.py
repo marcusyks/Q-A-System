@@ -95,7 +95,6 @@ async def run_query_mode():
     indexer = EmbeddingsIndexer()
 
     logging.info("Initializing local LLM... (This may take a moment)")
-    # Use a local model for question answering. TinyLlama is small and has a 2048 token context window.
     model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
     task = "text-generation"
     
@@ -128,6 +127,7 @@ async def run_query_mode():
 
         # Format context for the LLM
         context = "\n---\n".join([match['metadata']['page_content'] for match in sorted_matches])
+        print("\nRetrieved Context:\n", context)  # Debug: Show retrieved context
         return context
 
     # --- 3. Define the RAG chain using LCEL ---

@@ -9,16 +9,16 @@ from unittest.mock import patch, AsyncMock, MagicMock
 
 from langchain_core.documents import Document
 from src.embeddings import EmbeddingsIndexer
-from src.text_splitter import TextSplitterWrapper, CharacterTextSplitter
+from src.text_splitter import TextSplitterWrapper, RecursiveCharacterTextSplitter
 
-@unittest.skipIf(CharacterTextSplitter is None, "langchain-text-splitter is not available")
+@unittest.skipIf(RecursiveCharacterTextSplitter is None, "langchain-text-splitter is not available")
 class TestEmbeddingsIndexer(unittest.TestCase):
 
     def setUp(self):
         """Set up documents for testing."""
         # Simulate the full pipeline: a document is loaded and then split.
         splitter = TextSplitterWrapper(
-            chunk_size=26, chunk_overlap=0, separator=". "
+            chunk_size=26, chunk_overlap=0
         )
         # The resulting chunks are what get passed to the EmbeddingsIndexer.
         original_doc = Document(
@@ -45,6 +45,7 @@ class TestEmbeddingsIndexer(unittest.TestCase):
 
         # Assertions
         self.assertEqual(len(result), 3)
+
         # Check first item
         self.assertEqual(result[0]["id"], "abc123-0")
         self.assertEqual(result[0]["values"], [1.0])
