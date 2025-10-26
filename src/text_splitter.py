@@ -11,7 +11,7 @@ class TextSplitterWrapper:
     Wrap CharacterTextSplitter for Document splitting.
     """
 
-    def __init__(self, chunk_size: int = 1000, chunk_overlap: int = 100, separator: str = "\n\n"):
+    def __init__(self, chunk_size: int = 400, chunk_overlap: int = 100, separator: str = "\n\n"):
         if CharacterTextSplitter is None:
             raise RuntimeError("langchain-text-splitters is not installed. Please install with 'pip install langchain-text-splitters'")
         self.splitter = CharacterTextSplitter(

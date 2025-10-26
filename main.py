@@ -95,9 +95,9 @@ async def run_query_mode():
     indexer = EmbeddingsIndexer()
 
     logging.info("Initializing local LLM... (This may take a moment)")
-    # Use a local model for question answering. google/flan-t5-base is a good starting point.
-    model_id = "google/flan-t5-base"
-    task = "text2text-generation"
+    # Use a local model for question answering. TinyLlama is small and has a 2048 token context window.
+    model_id = "TinyLlama/TinyLlama-1.1B-Chat-v1.0"
+    task = "text-generation"
     
     hf_pipeline = pipeline(
         task,
@@ -112,7 +112,7 @@ async def run_query_mode():
     # --- 2. Define the retriever of relevant content ---
     async def retriever(query: str):
         query_embedding = await indexer.aembed_query(query)
-        matches = db_manager.query(query_vector=query_embedding, top_k=5)
+        matches = db_manager.query(query_vector=query_embedding, top_k=5) # can be increased based on LLM size
 
         # Sort matches to provide a more coherent context.
         # It sorts by source file, then by page number, then row, then start_index.

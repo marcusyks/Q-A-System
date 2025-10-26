@@ -12,8 +12,8 @@ This project is an experiment in creating a complete Retrieval-Augmented Generat
 - **Vector Database**: Pinecone
 - **LLM Framework**: LangChain
 - **Embedding Model**: `sentence-transformers/all-MiniLM-L6-v2` (384-dimensional vectors)
-- **Generative LLM**: `google/flan-t5-base` (running locally via Hugging Face `transformers`)
-- **Core Libraries**: `torch`, `langchain-community`, `pdfplumber`, `python-docx`, `pandas`
+- **Generative LLM**: `TinyLlama/TinyLlama-1.1B-Chat-v1.0` (running locally via Hugging Face `transformers`)
+- **Core Libraries**: `torch`, `langchain-huggingface`, `pdfplumber`, `python-docx`, `pandas`
 
 ## Setup
 
@@ -35,8 +35,6 @@ This project is an experiment in creating a complete Retrieval-Augmented Generat
 
     # Install required packages
     pip install -r requirements.txt 
-    # Or install manually:
-    # pip install pinecone-client langchain langchain-community sentence-transformers transformers torch accelerate python-dotenv pdfplumber python-docx pandas
     ```
 
 3.  **Configure Environment Variables:**
