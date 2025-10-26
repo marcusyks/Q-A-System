@@ -6,6 +6,7 @@
 import os
 import shutil
 import unittest
+import hashlib
 from src.document_loader import DocumentLoader, docx, pd, pdfplumber
 
 class TestDocumentLoader(unittest.TestCase):
@@ -78,77 +79,116 @@ startxref
         """Remove the temporary directory and its contents."""
         shutil.rmtree(self.test_dir)
 
+    def _compute_file_hash(self, path: str) -> str:
+        """Helper to compute SHA256 hash for test verification."""
+        sha256_hash = hashlib.sha256()
+        with open(path, "rb") as f:
+            for byte_block in iter(lambda: f.read(4096), b""):
+                sha256_hash.update(byte_block)
+        return sha256_hash.hexdigest()
+
 
     """
         Different test cases
     """
 
     def test_load_txt_file(self):
-        docs = self.loader.load(self.txt_path)
+        docs, file_count = self.loader.load(self.txt_path)
         self.assertEqual(len(docs), 1)
+        self.assertEqual(file_count, 1)
         self.assertEqual(docs[0].page_content, "This is a text file.")
         self.assertEqual(docs[0].metadata["source"], "test.txt")
+        self.assertIn("hash", docs[0].metadata)
+        self.assertEqual(docs[0].metadata["hash"], self._compute_file_hash(self.txt_path))
 
     @unittest.skipIf(not pd, "pandas is not installed")
     def test_load_csv_file(self):
 
         # Checks if CSV loaded
-        docs = self.loader.load(self.csv_path)
+        docs, file_count = self.loader.load(self.csv_path)
         self.assertEqual(len(docs), 2)
+        self.assertEqual(file_count, 1)
+
+        expected_hash = self._compute_file_hash(self.csv_path)
 
         # Check contents 
         self.assertEqual(docs[0].page_content, "id: 1 \nname: Alice")
         self.assertEqual(docs[0].metadata["source"], "test.csv")
         self.assertEqual(docs[0].metadata["row"], 0)
+        self.assertEqual(docs[0].metadata["hash"], expected_hash)
         self.assertEqual(docs[1].page_content, "id: 2 \nname: Bob")
         self.assertEqual(docs[1].metadata["row"], 1)
+        self.assertEqual(docs[1].metadata["hash"], expected_hash)
 
     @unittest.skipIf(not docx, "python-docx is not installed")
     def test_load_docx_file(self):
-        docs = self.loader.load(self.docx_path)
+        docs, file_count = self.loader.load(self.docx_path)
 
         # Checks if DOCX loaded
         self.assertEqual(len(docs), 1)
+        self.assertEqual(file_count, 1)
 
         # Checks contents
         self.assertEqual(docs[0].page_content, "This is a docx file.")
         self.assertEqual(docs[0].metadata["source"], "test.docx")
+        self.assertIn("hash", docs[0].metadata)
+        self.assertEqual(docs[0].metadata["hash"], self._compute_file_hash(self.docx_path))
 
     @unittest.skipIf(not pdfplumber, "pdfplumber is not installed")
     def test_load_pdf_file(self):
-        docs = self.loader.load(self.pdf_path)
+        docs, file_count = self.loader.load(self.pdf_path)
 
         # Checks if PDF loaded
         self.assertEqual(len(docs), 1)
+        self.assertEqual(file_count, 1)
         
         # Checks contents
         self.assertEqual(docs[0].page_content, "This is a PDF file.")
         self.assertEqual(docs[0].metadata["source"], "test.pdf")
         self.assertEqual(docs[0].metadata["page"], 1)
+        self.assertIn("hash", docs[0].metadata)
+        self.assertEqual(docs[0].metadata["hash"], self._compute_file_hash(self.pdf_path))
 
     def test_load_directory_non_recursive(self):
-        docs = self.loader.load(self.test_dir, recursive=False)
+        docs, file_count = self.loader.load(self.test_dir, recursive=False)
 
-        # Should find .txt, .csv, .docx, .pdf but not the .md in the subdir
-        # CSV creates 1 docs, PDF creates 1, TXT creates 1, DOCX creates 1.
-        expected_docs = 2 # .txt and invalid
-        if pd: expected_docs += 1 # .csv 
-        if docx: expected_docs += 1 # .docx
-        if pdfplumber: expected_docs += 1 # .pdf
-        self.assertEqual(len(docs), expected_docs)
+        # Should find .txt, .csv, .docx, .pdf but not the .md in the subdir.
+        # .txt -> 1 doc; .csv -> 2 docs; .docx -> 1 doc; .pdf -> 1 doc
+        expected_doc_count = 1  # .txt file
+        expected_file_count = 1 # .txt file
+        if pd:
+            expected_doc_count += 2  # .csv file has 2 rows
+            expected_file_count += 1
+        if docx:
+            expected_doc_count += 1  # .docx file
+            expected_file_count += 1
+        if pdfplumber:
+            expected_doc_count += 1  # .pdf file
+            expected_file_count += 1
+        self.assertEqual(len(docs), expected_doc_count)
+        self.assertEqual(file_count, expected_file_count)
 
     def test_load_directory_recursive(self):
-        docs = self.loader.load(self.test_dir, recursive=True)
-        # Should find .txt, .csv, .docx, .pdf AND the .md in the subdir
-        expected_docs = 3 # .txt and .md and invalid
-        if pd: expected_docs += 1 # .csv
-        if docx: expected_docs += 1 # .docx
-        if pdfplumber: expected_docs += 1 # .pdf
-        self.assertEqual(len(docs), expected_docs)
+        docs, file_count = self.loader.load(self.test_dir, recursive=True)
+        # Should find all supported files, including the .md in the subdir.
+        expected_doc_count = 2  # .txt and .md files
+        expected_file_count = 2 # .txt and .md files
+        if pd:
+            expected_doc_count += 2  # .csv file has 2 rows
+            expected_file_count += 1
+        if docx:
+            expected_doc_count += 1  # .docx file
+            expected_file_count += 1
+        if pdfplumber:
+            expected_doc_count += 1  # .pdf file
+            expected_file_count += 1
+        self.assertEqual(len(docs), expected_doc_count)
+        self.assertEqual(file_count, expected_file_count)
 
     def test_unsupported_file_type(self):
-        docs = self.loader.load(self.unsupported_path)
+        docs, file_count = self.loader.load(self.unsupported_path)
         self.assertEqual(len(docs), 0)
+        self.assertEqual(file_count, 0)
 
 if __name__ == "__main__":
     unittest.main()

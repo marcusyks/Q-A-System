@@ -1,17 +1,16 @@
-import uuid
 from typing import Any, Dict, List, Optional
 
 from langchain_core.documents import Document
+from dotenv import load_dotenv
+import os
 
 try:
     from langchain_community.embeddings import HuggingFaceEmbeddings
 except ImportError:
     HuggingFaceEmbeddings = None
-    
-try:
-    import pinecone
-except ImportError:
-    pinecone = None
+
+load_dotenv()
+
 
 class EmbeddingsIndexer:
     """
@@ -37,6 +36,12 @@ class EmbeddingsIndexer:
 
         self.embedder = HuggingFaceEmbeddings(model_name=model_name, model_kwargs=effective_model_kwargs)
 
+    async def aembed_query(self, text: str) -> List[float]:
+        """
+        Asynchronously creates an embedding for a single query text.
+        """
+        return await self.embedder.aembed_query(text)
+
     async def aembed_documents(self, docs: List[Document]) -> List[Dict[str, Any]]:
         """
         Returns list of dicts: {"id": str, "embedding": List[float], "metadata": dict}
@@ -48,20 +53,18 @@ class EmbeddingsIndexer:
         texts = [d.page_content for d in docs_with_content]
         vectors = await self.embedder.aembed_documents(texts)
 
-        return [{"id": str(uuid.uuid4()), "embedding": v, "metadata": d.metadata or {}} for d, v in zip(docs_with_content, vectors)]
-
-    def upsert_to_pinecone(self, pinecone_api_key: str, pinecone_environment: str, index_name: str, items: List[Dict[str, Any]], namespace: Optional[str] = None):
-        """
-        Upsert items to Pinecone index. Each item must have 'id', 'embedding', 'metadata'.
-        Creates index if not exists (vector_dim derived from first item).
-        """
-        if pinecone is None:
-            raise RuntimeError("pinecone is not installed/importable.")
-        pinecone.init(api_key=pinecone_api_key, environment=pinecone_environment)
-        if index_name not in pinecone.list_indexes():
-            dim = len(items[0]["embedding"])
-            pinecone.create_index(name=index_name, dimension=dim)
-        index = pinecone.Index(index_name)
-        # prepare tuples (id, vector, metadata)
-        to_upsert = [(it["id"], it["embedding"], it.get("metadata", {})) for it in items]
-        index.upsert(vectors=to_upsert, namespace=namespace)
+        # Create a unique ID for each chunk by combining file hash and chunk's start index
+        # This prevents overwriting chunks from the same document in Pinecone.
+        return [
+            {
+                "id": f"{d.metadata.get('hash')}-{d.metadata.get('start_index', 0)}-{d.metadata.get('page', 0)}-{d.metadata.get('row', 0)}",
+                # Page and row are for PDFs and CSVs respectively
+                "embedding": v,
+                # Ensure the text content is stored in the metadata for retrieval
+                "metadata": {
+                    **(d.metadata or {}),
+                    "page_content": d.page_content
+                },
+            }
+            for d, v in zip(docs_with_content, vectors)
+        ]
